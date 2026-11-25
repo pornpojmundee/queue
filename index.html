@@ -31,17 +31,14 @@ main{display:grid;grid-template-columns:1.7fr 1fr;gap:2vw;padding:2.2vh 2vw}
 .panel{background:#fff;border-radius:2vh;box-shadow:0 .6vh 2vh rgba(10,79,143,.12);overflow:hidden;display:flex;flex-direction:column}
 .ptitle{padding:1.6vh 2vw;font-size:min(4vh,2.8vw);font-weight:700;color:#fff;text-align:center}
 .now .ptitle{background:var(--green)}
-.done .ptitle{background:var(--muted)}
+.done .ptitle{background:var(--red)}
 .nowbody{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column}
 #now{font-size:min(30vw,46vh);font-weight:800;color:var(--blue);line-height:1;letter-spacing:.02em}
 .hint{font-size:min(3.2vh,2.2vw);color:var(--muted);margin-top:1vh}
-.list{flex:1;display:flex;flex-direction:column;padding:1.2vh 1.6vw;gap:1vh}
-.item{flex:1;display:flex;align-items:center;justify-content:space-between;background:#f3f7fb;border-radius:1.4vh;padding:0 2vw;font-size:min(6vh,4vw);font-weight:700;color:#3d5670;min-height:0}
-.item small{font-size:min(2.6vh,1.8vw);font-weight:600;color:var(--green)}
-.item:first-child{background:#e3f3ea;color:#1b6e43}
-.item.missed{background:#fdeceb;color:#a1261b}
-.item small.miss{color:#d93025}
-.empty{margin:auto;color:var(--muted);font-size:min(3.4vh,2.4vw)}
+.list{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:9vh;align-content:start;padding:1.4vh 1.4vw;gap:1.2vh 1vw}
+.item{display:flex;align-items:center;justify-content:center;background:#fdeceb;border:.3vh solid #f3c4c0;border-radius:1.4vh;font-size:min(5.6vh,3.6vw);font-weight:800;color:#a1261b;min-height:0}
+.more{grid-column:1/-1;text-align:center;color:var(--muted);font-size:min(2.8vh,2vw)}
+.empty{grid-column:1/-1;margin-top:4vh;text-align:center;color:var(--muted);font-size:min(3.4vh,2.4vw)}
 
 /* เมื่อเรียกคิวใหม่ */
 .flash{animation:flash 1s ease-in-out 5}
@@ -57,8 +54,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:0 3
   .screen{height:auto;min-height:100dvh;grid-template-rows:auto auto auto}
   header{padding:12px 16px}
   main{grid-template-columns:1fr;padding:12px}
-  .item{padding:14px 18px;min-height:60px}
-  .list{gap:8px}
+  .list{grid-auto-rows:64px;gap:8px}
   #now{font-size:34vw}
   footer{padding:10px 16px;gap:8px;flex-wrap:wrap}
 }
@@ -80,7 +76,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:0 3
       <div class="nowbody"><div id="now">-</div><div class="hint">กรุณาเข้าห้องตรวจเมื่อถึงหมายเลขของท่าน</div></div>
     </section>
     <section class="panel done">
-      <div class="ptitle">เรียกไปแล้ว</div>
+      <div class="ptitle">เรียกไม่พบ</div>
       <div class="list" id="list"></div>
     </section>
   </main>
@@ -105,8 +101,8 @@ var HOSPITAL_NAME = "ศูนย์การแพทย์กาญจนา�
 var DEPARTMENT = "แผนกเวชศาสตร์ครอบครัว";    // ชื่อแผนก/จุดบริการ
 var NOTICE = "กรุณารอเรียกคิวตามลำดับ ขอบคุณที่ใช้บริการ";
 var POLL_MS = 3000;                       // รีเฟรชทุก 3 วินาที
-var DONE_SHOWN = 6;                       // จำนวนคิวที่เรียกไปแล้วที่แสดง
-var S_MISSED = "เรียกไม่พบ";             // สถานะที่ให้ขึ้นป้ายสีแดงในรายการ "เรียกไปแล้ว"
+var MISSED_SHOWN = 12;                    // จำนวนคิว "เรียกไม่พบ" สูงสุดที่แสดง (2 คอลัมน์)
+var S_MISSED = "เรียกไม่พบ";             // สถานะที่จะแสดงในช่องด้านขวา
 // ====================
 
 var $ = function(id){ return document.getElementById(id); };
@@ -149,17 +145,11 @@ function render(){
   }
   lastNow = now;
 
-  // เรียกไปแล้ว = คิวที่อยู่เหนือคิวปัจจุบันในลำดับของชีต (ล่าสุดอยู่บนสุด)
-  var idx = -1;
-  for (var i = 0; i < rows.length; i++) if (rows[i].q === current){ idx = i; break; }
-  var done = idx > 0 ? rows.slice(0, idx).reverse().slice(0, DONE_SHOWN) : [];
-  $("list").innerHTML = done.length
-    ? done.map(function(r, i){
-        var miss = r.s === S_MISSED;
-        var tag = miss ? '<small class="miss">เรียกไม่พบ</small>' : (i === 0 ? "<small>เรียกล่าสุด</small>" : "");
-        return '<div class="item' + (miss ? " missed" : "") + '"><span>' + r.q + "</span>" + tag + "</div>";
-      }).join("")
-    : '<div class="empty">ยังไม่มีคิวที่เรียกไปแล้ว</div>';
+  // แสดงเฉพาะคิวที่สถานะเป็น "เรียกไม่พบ" (เรียงตามลำดับในชีต)
+  var missed = rows.filter(function(r){ return r.s === S_MISSED; });
+  var html = missed.slice(0, MISSED_SHOWN).map(function(r){ return '<div class="item">' + r.q + "</div>"; }).join("");
+  if (missed.length > MISSED_SHOWN) html += '<div class="more">และอีก ' + (missed.length - MISSED_SHOWN) + " คิว</div>";
+  $("list").innerHTML = html || '<div class="empty">ไม่มีคิวที่เรียกไม่พบ</div>';
 
   $("dot").classList.toggle("off", !ok);
   $("stat").textContent = ok ? "เชื่อมต่อแล้ว" : "ขาดการเชื่อมต่อ กำลังลองใหม่";
