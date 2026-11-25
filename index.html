@@ -35,9 +35,8 @@ main{display:grid;grid-template-columns:1.7fr 1fr;gap:2vw;padding:2.2vh 2vw}
 .nowbody{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column}
 #now{font-size:min(30vw,46vh);font-weight:800;color:var(--blue);line-height:1;letter-spacing:.02em}
 .hint{font-size:min(3.2vh,2.2vw);color:var(--muted);margin-top:1vh}
-.list{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:9vh;align-content:start;padding:1.4vh 1.4vw;gap:1.2vh 1vw}
-.item{display:flex;align-items:center;justify-content:center;background:#fdeceb;border:.3vh solid #f3c4c0;border-radius:1.4vh;font-size:min(5.6vh,3.6vw);font-weight:800;color:#a1261b;min-height:0}
-.more{grid-column:1/-1;text-align:center;color:var(--muted);font-size:min(2.8vh,2vw)}
+.list{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:6.4vh;align-content:start;padding:1.4vh 1.4vw;gap:1vh 1vw}
+.item{display:flex;align-items:center;justify-content:center;background:#fdeceb;border:.3vh solid #f3c4c0;border-radius:1.4vh;font-size:min(4.8vh,3.2vw);font-weight:800;color:#a1261b;min-height:0}
 .empty{grid-column:1/-1;margin-top:4vh;text-align:center;color:var(--muted);font-size:min(3.4vh,2.4vw)}
 
 /* เมื่อเรียกคิวใหม่ */
@@ -76,7 +75,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:0 3
       <div class="nowbody"><div id="now">-</div><div class="hint">กรุณาเข้าห้องตรวจเมื่อถึงหมายเลขของท่าน</div></div>
     </section>
     <section class="panel done">
-      <div class="ptitle">เรียกไม่พบ</div>
+      <div class="ptitle" id="missTitle">เรียกไม่พบ</div>
       <div class="list" id="list"></div>
     </section>
   </main>
@@ -101,7 +100,7 @@ var HOSPITAL_NAME = "ศูนย์การแพทย์กาญจนา�
 var DEPARTMENT = "แผนกเวชศาสตร์ครอบครัว";    // ชื่อแผนก/จุดบริการ
 var NOTICE = "กรุณารอเรียกคิวตามลำดับ ขอบคุณที่ใช้บริการ";
 var POLL_MS = 3000;                       // รีเฟรชทุก 3 วินาที
-var MISSED_SHOWN = 12;                    // จำนวนคิว "เรียกไม่พบ" สูงสุดที่แสดง (2 คอลัมน์)
+var MISSED_SHOWN = 16;                    // จำนวนคิว "เรียกไม่พบ" สูงสุดที่แสดง (2 คอลัมน์ x 8 แถว)
 var S_MISSED = "เรียกไม่พบ";             // สถานะที่จะแสดงในช่องด้านขวา
 // ====================
 
@@ -148,7 +147,7 @@ function render(){
   // แสดงเฉพาะคิวที่สถานะเป็น "เรียกไม่พบ" (เรียงตามลำดับในชีต)
   var missed = rows.filter(function(r){ return r.s === S_MISSED; });
   var html = missed.slice(0, MISSED_SHOWN).map(function(r){ return '<div class="item">' + r.q + "</div>"; }).join("");
-  if (missed.length > MISSED_SHOWN) html += '<div class="more">และอีก ' + (missed.length - MISSED_SHOWN) + " คิว</div>";
+  $("missTitle").textContent = missed.length > MISSED_SHOWN ? "เรียกไม่พบ (และอีก " + (missed.length - MISSED_SHOWN) + " คิว)" : "เรียกไม่พบ";
   $("list").innerHTML = html || '<div class="empty">ไม่มีคิวที่เรียกไม่พบ</div>';
 
   $("dot").classList.toggle("off", !ok);
