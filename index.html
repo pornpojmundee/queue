@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบเรียกคิวผู้ป่วย</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap">
+<style>
+:root{--blue:#0a4f8f;--teal:#0b8aa0;--ink:#0f2a43;--muted:#5d7189;--line:#d6e2ee;--bg:#eaf2f8;--green:#12a150;--red:#d93025}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:'Sarabun',system-ui,sans-serif;cursor:default}
+body.idle{cursor:none}
+.screen{height:100vh;height:100dvh;display:grid;grid-template-rows:14vh 1fr 7vh;padding-top:env(safe-area-inset-top,0px)}
+
+/* หัวจอ */
+header{display:flex;align-items:center;justify-content:space-between;padding:0 3vw;color:#fff;background:linear-gradient(90deg,var(--blue),var(--teal))}
+.brand{display:flex;align-items:center;gap:1.6vw}
+.cross{width:7vh;height:7vh;background:#fff;border-radius:1.4vh;position:relative;flex:none}
+.cross:before,.cross:after{content:"";position:absolute;background:#e53935;border-radius:.4vh}
+.cross:before{left:50%;top:18%;width:22%;height:64%;transform:translateX(-50%)}
+.cross:after{top:50%;left:18%;height:22%;width:64%;transform:translateY(-50%)}
+.hname{font-size:min(4.6vh,3.2vw);font-weight:800;line-height:1.1}
+.hsub{font-size:min(2.8vh,2vw);opacity:.92;font-weight:600}
+.clock{text-align:right}
+.time{font-size:min(6.5vh,4.6vw);font-weight:800;line-height:1}
+.date{font-size:min(2.6vh,1.9vw);opacity:.92}
+
+/* เนื้อหา */
+main{display:grid;grid-template-columns:1.7fr 1fr;gap:2vw;padding:2.2vh 2vw}
+.panel{background:#fff;border-radius:2vh;box-shadow:0 .6vh 2vh rgba(10,79,143,.12);overflow:hidden;display:flex;flex-direction:column}
+.ptitle{padding:1.6vh 2vw;font-size:min(4vh,2.8vw);font-weight:700;color:#fff;text-align:center}
+.now .ptitle{background:var(--green)}
+.done .ptitle{background:var(--muted)}
+.nowbody{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#now{font-size:min(30vw,46vh);font-weight:800;color:var(--blue);line-height:1;letter-spacing:.02em}
+.hint{font-size:min(3.2vh,2.2vw);color:var(--muted);margin-top:1vh}
+.list{flex:1;display:flex;flex-direction:column;padding:1.2vh 1.6vw;gap:1vh}
+.item{flex:1;display:flex;align-items:center;justify-content:space-between;background:#f3f7fb;border-radius:1.4vh;padding:0 2vw;font-size:min(6vh,4vw);font-weight:700;color:#3d5670;min-height:0}
+.item small{font-size:min(2.6vh,1.8vw);font-weight:600;color:var(--green)}
+.item:first-child{background:#e3f3ea;color:#1b6e43}
+.empty{margin:auto;color:var(--muted);font-size:min(3.4vh,2.4vw)}
+
+/* เมื่อเรียกคิวใหม่ */
+.flash{animation:flash 1s ease-in-out 5}
+@keyframes flash{0%,100%{background:#fff}50%{background:#d9f2e3}}
+
+/* ท้ายจอ */
+footer{display:flex;align-items:center;justify-content:space-between;padding:0 3vw;background:var(--blue);color:#fff;font-size:min(3vh,2.1vw)}
+.dot{display:inline-block;width:1.6vh;height:1.6vh;border-radius:50%;background:#5be28d;margin-right:.8vw}
+.dot.off{background:#ff6b5e}
+
+@media (max-width:800px){
+  html,body{overflow:auto}
+  .screen{height:auto;min-height:100dvh;grid-template-rows:auto auto auto}
+  header{padding:12px 16px}
+  main{grid-template-columns:1fr;padding:12px}
+  .item{padding:14px 18px;min-height:60px}
+  .list{gap:8px}
+  #now{font-size:34vw}
+  footer{padding:10px 16px;gap:8px;flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+<div class="screen">
+  <header>
+    <div class="brand">
+      <div class="cross"></div>
+      <div><div class="hname" id="hname"></div><div class="hsub" id="hsub"></div></div>
+    </div>
+    <div class="clock"><div class="time" id="time"></div><div class="date" id="date"></div></div>
+  </header>
+
+  <main>
+    <section class="panel now" id="nowPanel">
+      <div class="ptitle">ขณะนี้เรียกคิวหมายเลข</div>
+      <div class="nowbody"><div id="now">-</div><div class="hint">กรุณาเข้าห้องตรวจเมื่อถึงหมายเลขของท่าน</div></div>
+    </section>
+    <section class="panel done">
+      <div class="ptitle">เรียกไปแล้ว</div>
+      <div class="list" id="list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span id="notice"></span>
+    <span><span class="dot" id="dot"></span><span id="stat">กำลังเชื่อมต่อ</span></span>
+  </footer>
+</div>
+
+<script>
+// ===== ตั้งค่า =====
+var SHEET_ID = "1rq0DEgJN7-uimll1ZCRdhIkMWS6UXjXJ6d02dW8Lgr0";
+var TAB = "Sheet2";                       // แท็บที่มี 2 คอลัมน์: queue, status
+var HOSPITAL_NAME = "โรงพยาบาลตัวอย่าง";   // ชื่อ รพ. ที่แสดงบนหัวจอ
+var DEPARTMENT = "แผนกผู้ป่วยนอก (OPD)";    // ชื่อแผนก/จุดบริการ
+var NOTICE = "กรุณารอเรียกคิวตามลำดับ ขอบคุณที่ใช้บริการ";
+var POLL_MS = 3000;                       // รีเฟรชทุก 3 วินาที
+var DONE_SHOWN = 6;                       // จำนวนคิวที่เรียกไปแล้วที่แสดง
+var S_CALLING = "กำลังเรียก", S_DONE = "เสร็จ";   // คำสถานะในชีต
+// ====================
+
+var $ = function(id){ return document.getElementById(id); };
+var rows = [], ok = false, lastNow = null, cbN = 0;
+
+$("hname").textContent = HOSPITAL_NAME;
+$("hsub").textContent = DEPARTMENT;
+$("notice").textContent = NOTICE;
+
+// โหลดผ่านแท็ก <script> เพื่อเลี่ยงปัญหา CORS (ใช้ได้ทั้งเปิดจากไฟล์ในเครื่องและจากเว็บ)
+function load(){
+  return new Promise(function(resolve, reject){
+    var cb = "gv_" + (++cbN) + "_" + Date.now(), sc = document.createElement("script");
+    var t = setTimeout(function(){ cleanup(); reject(new Error("timeout")); }, 8000);
+    function cleanup(){ clearTimeout(t); delete window[cb]; if (sc.parentNode) sc.parentNode.removeChild(sc); }
+    window[cb] = function(r){
+      cleanup();
+      if (!r || r.status !== "ok" || !r.table){ reject(new Error("bad response")); return; }
+      rows = r.table.rows.map(function(row){
+        var c = row.c || [];
+        return {q: c[0] && c[0].v != null ? String(c[0].v).trim() : "", s: c[1] && c[1].v != null ? String(c[1].v).trim() : ""};
+      }).filter(function(x){ return x.q && x.q.toLowerCase() !== "queue"; });
+      ok = true; resolve();
+    };
+    sc.onerror = function(){ cleanup(); reject(new Error("load error")); };
+    sc.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?sheet=" + encodeURIComponent(TAB) + "&tqx=responseHandler:" + cb;
+    document.head.appendChild(sc);
+  }).catch(function(e){ ok = false; console.error(e); });
+}
+
+function render(){
+  var now = "-";
+  for (var i = 0; i < rows.length; i++) if (rows[i].s === S_CALLING){ now = rows[i].q; break; }
+  $("now").textContent = now;
+  if (lastNow !== null && lastNow !== now){
+    var p = $("nowPanel"); p.classList.remove("flash"); void p.offsetWidth; p.classList.add("flash");
+  }
+  lastNow = now;
+
+  var done = rows.filter(function(r){ return r.s === S_DONE; }).reverse().slice(0, DONE_SHOWN);
+  $("list").innerHTML = done.length
+    ? done.map(function(r, i){ return '<div class="item"><span>' + r.q + '</span>' + (i === 0 ? "<small>เรียกล่าสุด</small>" : "") + "</div>"; }).join("")
+    : '<div class="empty">ยังไม่มีคิวที่เรียกไปแล้ว</div>';
+
+  $("dot").classList.toggle("off", !ok);
+  $("stat").textContent = ok ? "เชื่อมต่อแล้ว" : "ขาดการเชื่อมต่อ กำลังลองใหม่";
+}
+
+function clock(){
+  var d = new Date();
+  $("time").textContent = d.toLocaleTimeString("th-TH", {hour: "2-digit", minute: "2-digit"}) + " น.";
+  $("date").textContent = d.toLocaleDateString("th-TH", {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+}
+clock(); setInterval(clock, 1000);
+
+function tick(){ load().then(render); }
+tick(); setInterval(tick, POLL_MS);
+
+// ดับเบิลคลิกหรือกด F = เต็มจอ / ซ่อนเมาส์เมื่อไม่ได้ขยับ
+function fs(){
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+}
+document.addEventListener("dblclick", fs);
+document.addEventListener("keydown", function(e){ if (e.key === "f" || e.key === "F") fs(); });
+var idleT;
+function wake(){ document.body.classList.remove("idle"); clearTimeout(idleT); idleT = setTimeout(function(){ document.body.classList.add("idle"); }, 3000); }
+document.addEventListener("mousemove", wake); wake();
+</script>
+</body>
+</html>
