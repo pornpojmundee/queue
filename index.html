@@ -88,7 +88,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:0 3
 // ===== ตั้งค่า =====
 // ค่าเริ่มต้น (ใช้เมื่อลิงก์ไม่ได้ระบุ ?id=...)
 var DEFAULT_SHEET_ID = "1rq0DEgJN7-uimll1ZCRdhIkMWS6UXjXJ6d02dW8Lgr0";
-var DEFAULT_TAB = "moring";               // แท็บของชีตแสดงผล: A=queue, B=status, C2=คิวปัจจุบัน (ตั้งใหม่เมื่อมีชีตแสดงผลจริง)
+var DEFAULT_TAB = "Sheet1";               // แท็บของชีตแสดงผล: A=queue, B=status, C2=คิวปัจจุบัน (ตั้งใหม่เมื่อมีชีตแสดงผลจริง)
 // เปลี่ยนชีตได้โดยไม่ต้องแก้โค้ด: ต่อท้ายลิงก์ด้วย ?id=<ID หรือลิงก์ชีตทั้งก้อน>&tab=<ชื่อแท็บ>
 var P = new URLSearchParams(location.search);
 function sheetId(v){ var m = /\/d\/([\w-]+)/.exec(v || ""); return m ? m[1] : (v || "").trim(); }
