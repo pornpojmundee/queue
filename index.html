@@ -39,6 +39,8 @@ main{display:grid;grid-template-columns:1.7fr 1fr;gap:2vw;padding:2.2vh 2vw}
 .item{flex:1;display:flex;align-items:center;justify-content:space-between;background:#f3f7fb;border-radius:1.4vh;padding:0 2vw;font-size:min(6vh,4vw);font-weight:700;color:#3d5670;min-height:0}
 .item small{font-size:min(2.6vh,1.8vw);font-weight:600;color:var(--green)}
 .item:first-child{background:#e3f3ea;color:#1b6e43}
+.item.missed{background:#fdeceb;color:#a1261b}
+.item small.miss{color:#d93025}
 .empty{margin:auto;color:var(--muted);font-size:min(3.4vh,2.4vw)}
 
 /* เมื่อเรียกคิวใหม่ */
@@ -93,7 +95,7 @@ footer{display:flex;align-items:center;justify-content:space-between;padding:0 3
 // ===== ตั้งค่า =====
 // ค่าเริ่มต้น (ใช้เมื่อลิงก์ไม่ได้ระบุ ?id=...)
 var DEFAULT_SHEET_ID = "1rq0DEgJN7-uimll1ZCRdhIkMWS6UXjXJ6d02dW8Lgr0";
-var DEFAULT_TAB = "Sheet2";               // แท็บที่มี 2 คอลัมน์: queue, status
+var DEFAULT_TAB = "Sheet1";               // แท็บของชีตแสดงผล: A=queue, B=status, C2=คิวปัจจุบัน (ตั้งใหม่เมื่อมีชีตแสดงผลจริง)
 // เปลี่ยนชีตได้โดยไม่ต้องแก้โค้ด: ต่อท้ายลิงก์ด้วย ?id=<ID หรือลิงก์ชีตทั้งก้อน>&tab=<ชื่อแท็บ>
 var P = new URLSearchParams(location.search);
 function sheetId(v){ var m = /\/d\/([\w-]+)/.exec(v || ""); return m ? m[1] : (v || "").trim(); }
@@ -104,11 +106,11 @@ var DEPARTMENT = "แผนกเวชศาสตร์ครอบครั�
 var NOTICE = "กรุณารอเรียกคิวตามลำดับ ขอบคุณที่ใช้บริการ";
 var POLL_MS = 3000;                       // รีเฟรชทุก 3 วินาที
 var DONE_SHOWN = 6;                       // จำนวนคิวที่เรียกไปแล้วที่แสดง
-var S_CALLING = "กำลังเรียก", S_DONE = "เสร็จ";   // คำสถานะในชีต
+var S_MISSED = "เรียกไม่พบ";             // สถานะที่ให้ขึ้นป้ายสีแดงในรายการ "เรียกไปแล้ว"
 // ====================
 
 var $ = function(id){ return document.getElementById(id); };
-var rows = [], ok = false, lastNow = null, cbN = 0;
+var rows = [], current = "", ok = false, lastNow = null, cbN = 0;
 
 $("hname").textContent = HOSPITAL_NAME;
 $("hsub").textContent = DEPARTMENT;
@@ -123,30 +125,40 @@ function load(){
     window[cb] = function(r){
       cleanup();
       if (!r || r.status !== "ok" || !r.table){ reject(new Error("bad response")); return; }
+      var cur = "";
       rows = r.table.rows.map(function(row){
         var c = row.c || [];
-        return {q: c[0] && c[0].v != null ? String(c[0].v).trim() : "", s: c[1] && c[1].v != null ? String(c[1].v).trim() : ""};
+        var v = function(i){ return c[i] && c[i].v != null ? String(c[i].v).trim() : ""; };
+        if (!cur && v(2) && v(2).toLowerCase() !== "current") cur = v(2);   // คิวปัจจุบันอยู่คอลัมน์ C
+        return {q: v(0), s: v(1)};
       }).filter(function(x){ return x.q && x.q.toLowerCase() !== "queue"; });
+      current = cur;
       ok = true; resolve();
     };
     sc.onerror = function(){ cleanup(); reject(new Error("load error")); };
-    sc.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?sheet=" + encodeURIComponent(TAB) + "&tqx=responseHandler:" + cb;
+    sc.src = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?sheet=" + encodeURIComponent(TAB) + "&headers=1&tqx=responseHandler:" + cb;
     document.head.appendChild(sc);
   }).catch(function(e){ ok = false; console.error(e); });
 }
 
 function render(){
-  var now = "-";
-  for (var i = 0; i < rows.length; i++) if (rows[i].s === S_CALLING){ now = rows[i].q; break; }
+  var now = current || "-";
   $("now").textContent = now;
   if (lastNow !== null && lastNow !== now){
     var p = $("nowPanel"); p.classList.remove("flash"); void p.offsetWidth; p.classList.add("flash");
   }
   lastNow = now;
 
-  var done = rows.filter(function(r){ return r.s === S_DONE; }).reverse().slice(0, DONE_SHOWN);
+  // เรียกไปแล้ว = คิวที่อยู่เหนือคิวปัจจุบันในลำดับของชีต (ล่าสุดอยู่บนสุด)
+  var idx = -1;
+  for (var i = 0; i < rows.length; i++) if (rows[i].q === current){ idx = i; break; }
+  var done = idx > 0 ? rows.slice(0, idx).reverse().slice(0, DONE_SHOWN) : [];
   $("list").innerHTML = done.length
-    ? done.map(function(r, i){ return '<div class="item"><span>' + r.q + '</span>' + (i === 0 ? "<small>เรียกล่าสุด</small>" : "") + "</div>"; }).join("")
+    ? done.map(function(r, i){
+        var miss = r.s === S_MISSED;
+        var tag = miss ? '<small class="miss">เรียกไม่พบ</small>' : (i === 0 ? "<small>เรียกล่าสุด</small>" : "");
+        return '<div class="item' + (miss ? " missed" : "") + '"><span>' + r.q + "</span>" + tag + "</div>";
+      }).join("")
     : '<div class="empty">ยังไม่มีคิวที่เรียกไปแล้ว</div>';
 
   $("dot").classList.toggle("off", !ok);
